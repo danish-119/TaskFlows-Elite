@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { FaEdit } from "react-icons/fa";
 import { MdDelete } from "react-icons/md";
 
@@ -6,17 +6,17 @@ const TodoCard = () => {
     const [todos, setTodos] = useState([]);
     const [showFinished, setShowFinished] = useState(false);
     const [editingTodoId, setEditingTodoId] = useState(null);
-    let inputTodo = useRef();
+    const inputTodo = useRef();
 
     useEffect(() => {
         fetchTodos();
-    }, []);
+    });
 
     const fetchTodos = async () => {
         try {
             const response = await fetch('http://localhost:3000/taskflows');
             if (!response.ok) {
-                throw new Error('Failed to fetch todos');
+                throw new Error(response.data);
             }
             const data = await response.json();
             setTodos(data);
@@ -48,10 +48,9 @@ const TodoCard = () => {
                     body: JSON.stringify({ text, finished: false }),
                 });
                 if (!response.ok) {
-                    throw new Error('Failed to add todo');
+                    throw new Error(response.data);
                 }
-                const newTodo = await response.json();
-                setTodos([...todos, newTodo]);
+                fetchTodos();
             }
             inputTodo.current.value = '';
         } catch (error) {
@@ -61,7 +60,7 @@ const TodoCard = () => {
 
     const handleEdit = (id) => {
         setEditingTodoId(id);
-        const todoToEdit = todos.find(todo => todo.id === id);
+        const todoToEdit = todos.find(todo => todo._id === id);
         if (todoToEdit) {
             inputTodo.current.value = todoToEdit.text;
         }
@@ -73,7 +72,7 @@ const TodoCard = () => {
             await fetch(`http://localhost:3000/taskflows/${id}`, {
                 method: 'DELETE',
             });
-            setTodos(todos.filter(todo => todo.id !== id));
+            setTodos(todos.filter(todo => todo._id !== id));
         } catch (error) {
             console.error('Error deleting todo:', error.message);
         }
@@ -81,7 +80,7 @@ const TodoCard = () => {
 
     const toggleTodoFinished = async (id) => {
         try {
-            const todoToUpdate = todos.find(todo => todo.id === id);
+            const todoToUpdate = todos.find(todo => todo._id === id);
             if (!todoToUpdate) return;
 
             const updatedTodo = { ...todoToUpdate, finished: !todoToUpdate.finished };
@@ -93,7 +92,7 @@ const TodoCard = () => {
                 body: JSON.stringify(updatedTodo),
             });
             setTodos(todos.map(todo =>
-                todo.id === id ? updatedTodo : todo
+                todo._id === id ? updatedTodo : todo
             ));
         } catch (error) {
             console.error('Error updating todo:', error.message);
@@ -121,12 +120,12 @@ const TodoCard = () => {
             {todos
                 .filter(todo => (showFinished ? true : !todo.finished))
                 .map(todo => (
-                    <div key={todo.id} className='flex items-center'>
-                        <input type="checkbox" checked={todo.finished} onChange={() => toggleTodoFinished(todo.id)} className='mr-2' />
+                    <div key={todo._id} className='flex items-center'>
+                        <input type="checkbox" checked={todo.finished} onChange={() => toggleTodoFinished(todo._id)} className='mr-2' />
                         <div className={`w-3/4 ${todo.finished ? 'line-through' : ''}`}>{todo.text}</div>
                         <div className='w-1/4 flex items-center'>
-                            <button onClick={() => handleEdit(todo.id)} className='text-center bg-blue-700 text-xs m-1 p-1 px-2 rounded-full hover:bg-blue-800'><FaEdit /></button>
-                            <button onClick={() => handleDelete(todo.id)} className='text-center bg-blue-700 text-xs m-1 p-1 px-2 rounded-full hover:bg-blue-800'><MdDelete /></button>
+                            <button onClick={() => handleEdit(todo._id)} className='text-center bg-blue-700 text-xs m-1 p-1 px-2 rounded-full hover:bg-blue-800'><FaEdit /></button>
+                            <button onClick={() => handleDelete(todo._id)} className='text-center bg-red-700 text-xs m-1 p-1 px-2 rounded-full hover:bg-red-800'><MdDelete /></button>
                         </div>
                     </div>
                 ))}

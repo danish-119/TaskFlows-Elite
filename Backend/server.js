@@ -1,6 +1,7 @@
 const express = require("express");
 const mongoose = require("mongoose");
 const bodyParser = require("body-parser");
+const cors = require("cors");
 const Todo = require("./models/todoSchema");
 
 const app = express();
@@ -9,6 +10,7 @@ const port = 3000;
 mongoose.connect("mongodb://127.0.0.1:27017/taskflows");
 
 app.use(bodyParser.json());
+app.use(cors());
 
 // GET all todos
 app.get("/taskflows", async (req, res) => {
@@ -22,15 +24,16 @@ app.get("/taskflows", async (req, res) => {
 
 // POST a new todo
 app.post("/taskflows", async (req, res) => {
-  const todo = new Todo({
-    id: req.body.id,
-    text: req.body.text,
-    finished: req.body.finished || false,
-  });
-
+  const { text, finished } = req.body;
   try {
-    const newTodo = await todo.save();
-    res.status(201).json(newTodo);
+    const todo = new Todo({
+      text,
+      finished: finished || false,
+    });
+
+    // console.log(todo)
+    await todo.save();
+    res.status(201).json({message: "task added"});
   } catch (err) {
     res.status(400).json({ message: err.message });
   }
@@ -39,18 +42,33 @@ app.post("/taskflows", async (req, res) => {
 // PUT update a todo
 app.put("/taskflows/:id", async (req, res) => {
   const id = req.params.id;
+  const { text, finished } = req.body;
 
   try {
-    const todo = await Todo.findById(id);
+    const todo = await Todo.findByIdAndUpdate(
+      id,
+      { text, finished },
+      { new: true }
+    );
     if (!todo) {
       return res.status(404).json({ message: "Todo not found" });
     }
+    res.json(todo);
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+});
 
-    todo.text = req.body.text || todo.text;
-    todo.finished = req.body.finished || todo.finished;
+// DELETE a todo
+app.delete("/taskflows/:id", async (req, res) => {
+  const id = req.params.id;
 
-    const updatedTodo = await todo.save();
-    res.json(updatedTodo);
+  try {
+    const todo = await Todo.findByIdAndDelete(id);
+    if (!todo) {
+      return res.status(404).json({ message: "Todo not found" });
+    }
+    res.json({ message: "Todo deleted" });
   } catch (err) {
     res.status(400).json({ message: err.message });
   }
