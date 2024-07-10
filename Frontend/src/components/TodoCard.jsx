@@ -1,61 +1,107 @@
-import { stringify } from 'postcss';
 import React, { useRef, useState, useEffect } from 'react';
 import { FaEdit } from "react-icons/fa";
 import { MdDelete } from "react-icons/md";
 
 const TodoCard = () => {
-    const [todos, setTodos] = useState(() => {
-        const savedTodos = localStorage.getItem('todos');
-        return savedTodos ? JSON.parse(savedTodos) : [];
-    });
+    const [todos, setTodos] = useState([]);
     const [showFinished, setShowFinished] = useState(false);
     const [editingTodoId, setEditingTodoId] = useState(null);
     let inputTodo = useRef();
 
     useEffect(() => {
-        if (editingTodoId !== null) {
-            const todoToEdit = todos.find(todo => todo.id === editingTodoId);
-            if (todoToEdit) {
-                inputTodo.current.value = todoToEdit.text;
-            }
-        }
-        localStorage.setItem('todos', JSON.stringify(todos));
-    }, [editingTodoId, todos]);
+        fetchTodos();
+    }, []);
 
-    const handleSave = () => {
-        if (editingTodoId !== null) {
-            setTodos(todos.map(todo =>
-                todo.id === editingTodoId ? { ...todo, text: inputTodo.current.value } : todo
-            ));
-            setEditingTodoId(null);
-        } else {
-            const newTodo = {
-                id: Date.now(),
-                text: inputTodo.current.value,
-                finished: false,
-            };
-            setTodos([...todos, newTodo]);
+    const fetchTodos = async () => {
+        try {
+            const response = await fetch('http://localhost:3000/taskflows');
+            if (!response.ok) {
+                throw new Error('Failed to fetch todos');
+            }
+            const data = await response.json();
+            setTodos(data);
+        } catch (error) {
+            console.error('Error fetching todos:', error.message);
         }
-        inputTodo.current.value = "";
+    };
+
+    const handleSave = async () => {
+        const text = inputTodo.current.value.trim();
+        if (!text) return;
+
+        try {
+            if (editingTodoId !== null) {
+                await fetch(`http://localhost:3000/taskflows/${editingTodoId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ text }),
+                });
+                setEditingTodoId(null);
+            } else {
+                const response = await fetch('http://localhost:3000/taskflows', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ text, finished: false }),
+                });
+                if (!response.ok) {
+                    throw new Error('Failed to add todo');
+                }
+                const newTodo = await response.json();
+                setTodos([...todos, newTodo]);
+            }
+            inputTodo.current.value = '';
+        } catch (error) {
+            console.error('Error saving todo:', error.message);
+        }
     };
 
     const handleEdit = (id) => {
         setEditingTodoId(id);
-        inputTodo.current.select();
+        const todoToEdit = todos.find(todo => todo.id === id);
+        if (todoToEdit) {
+            inputTodo.current.value = todoToEdit.text;
+        }
+        inputTodo.current.focus();
     };
 
-    const handleDelete = (id) => {
-        setTodos(todos.filter(todo => todo.id !== id));
+    const handleDelete = async (id) => {
+        try {
+            await fetch(`http://localhost:3000/taskflows/${id}`, {
+                method: 'DELETE',
+            });
+            setTodos(todos.filter(todo => todo.id !== id));
+        } catch (error) {
+            console.error('Error deleting todo:', error.message);
+        }
+    };
+
+    const toggleTodoFinished = async (id) => {
+        try {
+            const todoToUpdate = todos.find(todo => todo.id === id);
+            if (!todoToUpdate) return;
+
+            const updatedTodo = { ...todoToUpdate, finished: !todoToUpdate.finished };
+            await fetch(`http://localhost:3000/taskflows/${id}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(updatedTodo),
+            });
+            setTodos(todos.map(todo =>
+                todo.id === id ? updatedTodo : todo
+            ));
+        } catch (error) {
+            console.error('Error updating todo:', error.message);
+        }
     };
 
     const handleToggleFinished = () => {
         setShowFinished(!showFinished);
-    };
-
-    const toggleTodoFinished = (id) => {
-        setTodos(todos.map(todo =>
-            todo.id === id ? { ...todo, finished: !todo.finished } : todo
-        ));
     };
 
     return (
